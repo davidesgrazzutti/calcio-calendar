@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   FlatList,
   SafeAreaView,
@@ -6,12 +6,14 @@ import {
   Text,
   View,
   TouchableOpacity,
+  ActivityIndicator,
 } from "react-native";
 
 type Theme = "light" | "dark";
 
 interface Match {
   id: string;
+  matchday: number;
   date: string;   // YYYY-MM-DD
   time: string;   // HH:mm
   homeTeam: string;
@@ -20,176 +22,183 @@ interface Match {
   city: string;
 }
 
-// 📅 Prossimi incontri Serie A (snapshot statico, aggiornato al calendario attuale)
-const SERIE_A_FIXTURES: Match[] = [
-  // Sabato 22 novembre 2025
-  {
-    id: "2025-11-22-CAG-GEN",
-    date: "2025-11-22",
-    time: "14:00",
-    homeTeam: "Cagliari",
-    awayTeam: "Genoa",
-    venue: "Unipol Domus",
-    city: "Cagliari",
-  },
-  {
-    id: "2025-11-22-UDI-BOL",
-    date: "2025-11-22",
-    time: "14:00",
-    homeTeam: "Udinese",
-    awayTeam: "Bologna",
-    venue: "Bluenergy Stadium",
-    city: "Udine",
-  },
-  {
-    id: "2025-11-22-FIO-JUV",
-    date: "2025-11-22",
-    time: "17:00",
-    homeTeam: "Fiorentina",
-    awayTeam: "Juventus",
-    venue: "Artemio Franchi",
-    city: "Firenze",
-  },
-  {
-    id: "2025-11-22-NAP-ATA",
-    date: "2025-11-22",
-    time: "19:45",
-    homeTeam: "Napoli",
-    awayTeam: "Atalanta",
-    venue: "Diego Armando Maradona",
-    city: "Napoli",
-  },
-
-  // Domenica 23 novembre 2025
-  {
-    id: "2025-11-23-VER-PAR",
-    date: "2025-11-23",
-    time: "11:30",
-    homeTeam: "Hellas Verona",
-    awayTeam: "Parma",
-    venue: "Stadio Marcantonio Bentegodi",
-    city: "Verona",
-  },
-  {
-    id: "2025-11-23-CRE-ROM",
-    date: "2025-11-23",
-    time: "14:00",
-    homeTeam: "Cremonese",
-    awayTeam: "Roma",
-    venue: "Giovanni Zini",
-    city: "Cremona",
-  },
-  {
-    id: "2025-11-23-LAZ-LEC",
-    date: "2025-11-23",
-    time: "17:00",
-    homeTeam: "Lazio",
-    awayTeam: "Lecce",
-    venue: "Stadio Olimpico",
-    city: "Roma",
-  },
-  {
-    id: "2025-11-23-INT-MIL",
-    date: "2025-11-23",
-    time: "19:45",
-    homeTeam: "Inter",
-    awayTeam: "AC Milan",
-    venue: "Stadio Giuseppe Meazza",
-    city: "Milano",
-  },
-
-  // Lunedì 24 novembre 2025
-  {
-    id: "2025-11-24-TOR-COM",
-    date: "2025-11-24",
-    time: "17:30",
-    homeTeam: "Torino",
-    awayTeam: "Como",
-    venue: "Olimpico Grande Torino",
-    city: "Torino",
-  },
-  {
-    id: "2025-11-24-SAS-PIS",
-    date: "2025-11-24",
-    time: "19:45",
-    homeTeam: "Sassuolo",
-    awayTeam: "Pisa",
-    venue: "MAPEI Stadium - Città del Tricolore",
-    city: "Reggio Emilia",
-  },
-
-  // Venerdì 28 novembre 2025
-  {
-    id: "2025-11-28-COM-SAS",
-    date: "2025-11-28",
-    time: "19:45",
-    homeTeam: "Como",
-    awayTeam: "Sassuolo",
-    venue: "Giuseppe Sinigaglia",
-    city: "Como",
-  },
-];
-
-// Ordiniamo in caso
-const SORTED_FIXTURES = [...SERIE_A_FIXTURES].sort((a, b) =>
-  `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`)
-);
+// ⬇️ URL della tua API su Render
+const API_BASE_URL = "https://calciocalendarapi.onrender.com";
 
 const App: React.FC = () => {
   const [theme, setTheme] = useState<Theme>("dark");
+  const [fixtures, setFixtures] = useState<Match[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const isDark = theme === "dark";
 
   const toggleTheme = () => {
     setTheme((prev) => (prev === "dark" ? "light" : "dark"));
   };
 
-  const renderMatch = ({ item }: { item: Match }) => {
+  const loadFixtures = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const res = await fetch(`${API_BASE_URL}/api/fixtures`);
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      const data = (await res.json()) as Match[];
+
+      // ordina per giornata + data + ora
+      const sorted = [...data].sort((a, b) =>
+        `${a.matchday.toString().padStart(2, "0")} ${a.date} ${a.time}`.localeCompare(
+          `${b.matchday.toString().padStart(2, "0")} ${b.date} ${b.time}`
+        )
+      );
+
+      setFixtures(sorted);
+    } catch (err: any) {
+      console.log("Errore nel fetch:", err);
+      setError("Impossibile caricare le partite. Controlla la connessione.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadFixtures();
+  }, []);
+
+  const renderMatch = ({ item, index }: { item: Match; index: number }) => {
+    const prev = fixtures[index - 1];
+    const showDivider = index === 0 || prev.matchday !== item.matchday;
+
     return (
-      <View
-        style={[
-          styles.card,
-          { backgroundColor: isDark ? "#1f2833" : "#ffffff" },
-        ]}
-      >
-        <Text
-          style={[
-            styles.league,
-            { color: isDark ? "#66fcf1" : "#006699" },
-          ]}
-        >
-          Serie A
-        </Text>
+      <View>
+        {showDivider && (
+          <Text
+            style={{
+              fontSize: 16,
+              fontWeight: "700",
+              color: isDark ? "#66fcf1" : "#003366",
+              marginTop: 20,
+              marginBottom: 10,
+              textAlign: "center",
+            }}
+          >
+            ———  Giornata {item.matchday}  ———
+          </Text>
+        )}
 
-        <Text
+        <View
           style={[
-            styles.teams,
-            { color: isDark ? "#ffffff" : "#000000" },
+            styles.card,
+            { backgroundColor: isDark ? "#1f2833" : "#ffffff" },
           ]}
         >
-          {item.homeTeam} vs {item.awayTeam}
-        </Text>
+          <Text
+            style={[
+              styles.league,
+              { color: isDark ? "#66fcf1" : "#006699" },
+            ]}
+          >
+            Serie A 2025/26
+          </Text>
 
-        <Text
-          style={[
-            styles.dateTime,
-            { color: isDark ? "#c5c6c7" : "#333333" },
-          ]}
-        >
-          {item.date} • {item.time}
-        </Text>
+          <Text
+            style={[
+              styles.teams,
+              { color: isDark ? "#ffffff" : "#000000" },
+            ]}
+          >
+            {item.homeTeam} vs {item.awayTeam}
+          </Text>
 
-        <Text
-          style={[
-            styles.meta,
-            { color: isDark ? "#c5c6c7" : "#555555" },
-          ]}
-        >
-          {item.venue} • {item.city}
-        </Text>
+          <Text
+            style={[
+              styles.dateTime,
+              { color: isDark ? "#c5c6c7" : "#333333" },
+            ]}
+          >
+            {item.date} • {item.time}
+          </Text>
+
+          <Text
+            style={[
+              styles.meta,
+              { color: isDark ? "#c5c6c7" : "#555555" },
+            ]}
+          >
+            {item.venue} • {item.city}
+          </Text>
+        </View>
       </View>
     );
   };
 
+  // schermata di loading
+  if (loading) {
+    return (
+      <SafeAreaView
+        style={[
+          styles.container,
+          { backgroundColor: isDark ? "#0b0c10" : "#f2f2f2" },
+        ]}
+      >
+        <ActivityIndicator size="large" style={{ marginTop: 40 }} />
+        <Text
+          style={{
+            marginTop: 16,
+            textAlign: "center",
+            color: isDark ? "#ffffff" : "#000000",
+          }}
+        >
+          Caricamento partite...
+        </Text>
+      </SafeAreaView>
+    );
+  }
+
+  // schermata di errore
+  if (error) {
+    return (
+      <SafeAreaView
+        style={[
+          styles.container,
+          { backgroundColor: isDark ? "#0b0c10" : "#f2f2f2" },
+        ]}
+      >
+        <Text
+          style={{
+            margin: 16,
+            textAlign: "center",
+            color: isDark ? "#ff6666" : "#cc0000",
+          }}
+        >
+          {error}
+        </Text>
+
+        <TouchableOpacity
+          onPress={loadFixtures}
+          style={{
+            alignSelf: "center",
+            marginTop: 10,
+            paddingHorizontal: 16,
+            paddingVertical: 8,
+            borderRadius: 8,
+            borderWidth: 1,
+            borderColor: isDark ? "#66fcf1" : "#006699",
+          }}
+        >
+          <Text style={{ color: isDark ? "#66fcf1" : "#006699" }}>
+            Riprova
+          </Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
+
+  // schermata normale
   return (
     <SafeAreaView
       style={[
@@ -197,7 +206,6 @@ const App: React.FC = () => {
         { backgroundColor: isDark ? "#0b0c10" : "#f2f2f2" },
       ]}
     >
-      {/* HEADER: titolo + toggle sotto a sinistra */}
       <View style={styles.header}>
         <Text
           style={[
@@ -205,7 +213,7 @@ const App: React.FC = () => {
             { color: isDark ? "#ffffff" : "#000000" },
           ]}
         >
-          Risultati Calcio – Prossimi incontri Serie A
+          Calcio Calendar – Serie A 2025/26
         </Text>
 
         <TouchableOpacity
@@ -220,7 +228,7 @@ const App: React.FC = () => {
       </View>
 
       <FlatList
-        data={SORTED_FIXTURES}
+        data={fixtures}
         keyExtractor={(item) => item.id}
         renderItem={renderMatch}
         contentContainerStyle={styles.listContent}
@@ -234,7 +242,7 @@ const styles = StyleSheet.create({
   listContent: { padding: 16, paddingBottom: 32 },
   header: {
     paddingHorizontal: 16,
-    paddingTop: 60,     // ⬅️ aumentato (prima era 16)
+    paddingTop: 60,
     paddingBottom: 8,
     flexDirection: "column",
     alignItems: "flex-start",
