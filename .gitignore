@@ -1,13 +1,16 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
-
 # dependencies
 node_modules/
 
 # Expo
 .expo/
+.expo-shared/
 dist/
 web-build/
 expo-env.d.ts
+
+# EAS / Expo cache
+.eascache/
+eas-build/*
 
 # Native
 .kotlin/
@@ -30,12 +33,21 @@ yarn-error.*
 .DS_Store
 *.pem
 
+# Windows
+Thumbs.db
+
 # local env files
+.env
+.env.*
 .env*.local
 
 # typescript
 *.tsbuildinfo
 
-# generated native folders
-/ios
-/android
+# generated native folders (Expo managed)
+ios/
+android/
+
+# IDE / editor folders
+.vscode/
+.idea/
