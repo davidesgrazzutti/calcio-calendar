@@ -52,11 +52,14 @@ const App: React.FC = () => {
     "SCHEDULED"
   );
 
+  // Modale per scegliere la vista (Risultati / In programma / Tutto)
+  const [viewModeSelectorVisible, setViewModeSelectorVisible] =
+    useState(false);
+
   const isDark = theme === "dark";
 
   // colori di tema
-  const primaryColor = isDark ? "#66fcf1" : "#003366"; // stesso blu della scritta "Giornata" in light
-  const textOnPrimary = isDark ? "#0b0c10" : "#ffffff";
+  const primaryColor = isDark ? "#66fcf1" : "#003366"; // blu scritta "Giornata" in light
   const leagueColor = isDark ? "#66fcf1" : "#006699";
 
   const toggleTheme = () =>
@@ -103,38 +106,41 @@ const App: React.FC = () => {
   const visibleFixtures = React.useMemo(() => {
     let arr = [...fixtures];
 
-    // Ordine normale (dal primo al 38)
-    arr.sort((a, b) =>
-      `${a.matchday} ${a.date} ${a.time}`.localeCompare(
-        `${b.matchday} ${b.date} ${b.time}`
-      )
-    );
-
-    // Se sto mostrando solo i risultati → inverti l’ordine (ultima giornata → prima)
-    if (viewMode === "FINISHED") {
-      arr.reverse();
-    }
-
-    // vista risultati
+    // 1) FILTRO STATO (risultati / future)
     if (viewMode === "FINISHED") {
       arr = arr.filter((f) => f.status === "FINISHED");
-    }
-
-    // vista partite future
-    if (viewMode === "SCHEDULED") {
+    } else if (viewMode === "SCHEDULED") {
       arr = arr.filter((f) => f.status === "SCHEDULED");
     }
 
-    // filtro squadra
+    // 2) FILTRO SQUADRA
     if (selectedTeam) {
       arr = arr.filter(
         (f) => f.homeTeam === selectedTeam || f.awayTeam === selectedTeam
       );
     }
 
-    // filtro giornata
+    // 3) FILTRO GIORNATA
     if (selectedMatchday !== null) {
       arr = arr.filter((f) => f.matchday === selectedMatchday);
+    }
+
+    // 4) ORDINE: prima per matchday, poi per data, poi ora
+    arr.sort((a, b) => {
+      if (a.matchday !== b.matchday) {
+        return a.matchday - b.matchday;
+      }
+
+      if (a.date !== b.date) {
+        return a.date.localeCompare(b.date);
+      }
+
+      return a.time.localeCompare(b.time);
+    });
+
+    // 5) Se sto guardando solo i RISULTATI → inverti l’ordine delle giornate
+    if (viewMode === "FINISHED") {
+      arr.reverse();
     }
 
     return arr;
@@ -282,76 +288,26 @@ const App: React.FC = () => {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={toggleTheme} style={{ marginLeft: 8 }}>
-            <Text style={{ fontSize: 22 }}>{isDark ? "☀️" : "🌙"}</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* VISTA RISULTATI / FUTURE / TUTTO */}
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            marginTop: 14,
-            gap: 10,
-          }}
-        >
-          <TouchableOpacity
-            style={[
-              styles.viewButton,
-              { borderColor: primaryColor },
-              viewMode === "FINISHED" && { backgroundColor: primaryColor },
-            ]}
-            onPress={() => setViewMode("FINISHED")}
+          {/* Sole/Luna + Icona menu vista (senza label) */}
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginLeft: 8,
+            }}
           >
-            <Text
-              style={[
-                styles.viewButtonText,
-                { color: primaryColor },
-                viewMode === "FINISHED" && { color: textOnPrimary },
-              ]}
+            {/* MENU PRIMA */}
+            <TouchableOpacity
+              onPress={() => setViewModeSelectorVisible(true)}
             >
-              Risultati
-            </Text>
-          </TouchableOpacity>
+              <Text style={{ fontSize: 22, color: primaryColor }}>☰</Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[
-              styles.viewButton,
-              { borderColor: primaryColor },
-              viewMode === "SCHEDULED" && { backgroundColor: primaryColor },
-            ]}
-            onPress={() => setViewMode("SCHEDULED")}
-          >
-            <Text
-              style={[
-                styles.viewButtonText,
-                { color: primaryColor },
-                viewMode === "SCHEDULED" && { color: textOnPrimary },
-              ]}
-            >
-              In programma
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.viewButton,
-              { borderColor: primaryColor },
-              viewMode === "ALL" && { backgroundColor: primaryColor },
-            ]}
-            onPress={() => setViewMode("ALL")}
-          >
-            <Text
-              style={[
-                styles.viewButtonText,
-                { color: primaryColor },
-                viewMode === "ALL" && { color: textOnPrimary },
-              ]}
-            >
-              Mostra tutto
-            </Text>
-          </TouchableOpacity>
+            {/* SOLE/LUNA DOPO */}
+            <TouchableOpacity onPress={toggleTheme} style={{ marginLeft: 10 }}>
+              <Text style={{ fontSize: 22 }}>{isDark ? "☀️" : "🌙"}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -478,6 +434,78 @@ const App: React.FC = () => {
             <TouchableOpacity
               style={styles.modalCloseButton}
               onPress={() => setTeamSelectorVisible(false)}
+            >
+              <Text style={{ color: primaryColor }}>Chiudi</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* VISTA (RISULTATI / PROGRAMMA / TUTTO) */}
+      <Modal
+        visible={viewModeSelectorVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setViewModeSelectorVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Seleziona vista</Text>
+
+            <TouchableOpacity
+              style={styles.modalItem}
+              onPress={() => {
+                setViewMode("FINISHED");
+                setViewModeSelectorVisible(false);
+              }}
+            >
+              <Text
+                style={{
+                  color: viewMode === "FINISHED" ? primaryColor : "#ffffff",
+                  fontWeight: viewMode === "FINISHED" ? "700" : "400",
+                }}
+              >
+                Risultati
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.modalItem}
+              onPress={() => {
+                setViewMode("SCHEDULED");
+                setViewModeSelectorVisible(false);
+              }}
+            >
+              <Text
+                style={{
+                  color: viewMode === "SCHEDULED" ? primaryColor : "#ffffff",
+                  fontWeight: viewMode === "SCHEDULED" ? "700" : "400",
+                }}
+              >
+                In programma
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.modalItem}
+              onPress={() => {
+                setViewMode("ALL");
+                setViewModeSelectorVisible(false);
+              }}
+            >
+              <Text
+                style={{
+                  color: viewMode === "ALL" ? primaryColor : "#ffffff",
+                  fontWeight: viewMode === "ALL" ? "700" : "400",
+                }}
+              >
+                Mostra tutto
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => setViewModeSelectorVisible(false)}
             >
               <Text style={{ color: primaryColor }}>Chiudi</Text>
             </TouchableOpacity>
