@@ -36,6 +36,9 @@ const App: React.FC = () => {
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
   const [teamSelectorVisible, setTeamSelectorVisible] = useState(false);
 
+  const [selectedMatchday, setSelectedMatchday] = useState<number | null>(null);
+  const [matchdaySelectorVisible, setMatchdaySelectorVisible] = useState(false);
+
   const isDark = theme === "dark";
 
   const toggleTheme = () => {
@@ -77,20 +80,33 @@ const App: React.FC = () => {
     return Array.from(set).sort();
   }, [fixtures]);
 
-  // partite ordinate e filtrate per squadra (se selezionata)
+  // elenco delle giornate
+  const matchdays: number[] = React.useMemo(() => {
+    const set = new Set<number>();
+    fixtures.forEach((f) => set.add(f.matchday));
+    return Array.from(set).sort((a, b) => a - b);
+  }, [fixtures]);
+
+  // partite ordinate e filtrate
   const visibleFixtures: Match[] = React.useMemo(() => {
-    const sorted = [...fixtures].sort((a, b) =>
+    let sorted = [...fixtures].sort((a, b) =>
       `${a.matchday.toString().padStart(2, "0")} ${a.date} ${a.time}`.localeCompare(
         `${b.matchday.toString().padStart(2, "0")} ${b.date} ${b.time}`
       )
     );
 
-    if (!selectedTeam) return sorted;
+    if (selectedTeam) {
+      sorted = sorted.filter(
+        (f) => f.homeTeam === selectedTeam || f.awayTeam === selectedTeam
+      );
+    }
 
-    return sorted.filter(
-      (f) => f.homeTeam === selectedTeam || f.awayTeam === selectedTeam
-    );
-  }, [fixtures, selectedTeam]);
+    if (selectedMatchday !== null) {
+      sorted = sorted.filter((f) => f.matchday === selectedMatchday);
+    }
+
+    return sorted;
+  }, [fixtures, selectedTeam, selectedMatchday]);
 
   const renderMatch = ({ item, index }: { item: Match; index: number }) => {
     const prev = visibleFixtures[index - 1];
@@ -105,7 +121,6 @@ const App: React.FC = () => {
               fontSize: 16,
               fontWeight: "700",
               color: isDark ? "#66fcf1" : "#003366",
-              marginTop: 20,
               marginBottom: 10,
               textAlign: "center",
             }}
@@ -128,6 +143,7 @@ const App: React.FC = () => {
           >
             Serie A 2025/26
             {selectedTeam ? ` • ${selectedTeam}` : ""}
+            {selectedMatchday !== null ? ` • Giornata ${selectedMatchday}` : ""}
           </Text>
 
           <Text
@@ -161,7 +177,7 @@ const App: React.FC = () => {
     );
   };
 
-  // schermata di loading
+  // loading
   if (loading) {
     return (
       <SafeAreaView
@@ -184,7 +200,7 @@ const App: React.FC = () => {
     );
   }
 
-  // schermata di errore
+  // errore
   if (error) {
     return (
       <SafeAreaView
@@ -223,7 +239,7 @@ const App: React.FC = () => {
     );
   }
 
-  // schermata normale
+  // normale
   return (
     <SafeAreaView
       style={[
@@ -241,11 +257,30 @@ const App: React.FC = () => {
           Calcio Calendar – Serie A 2025/26
         </Text>
 
-        <View style={styles.headerRight}>
+        {/* riga con filtri + sole/luna sotto il titolo */}
+        <View style={styles.headerFiltersRow}>
+          {/* Bottone selezione giornata */}
+          <TouchableOpacity
+            onPress={() => setMatchdaySelectorVisible(true)}
+            style={styles.filterButton}
+            activeOpacity={0.7}
+          >
+            <Text
+              style={{
+                color: isDark ? "#66fcf1" : "#006699",
+                fontSize: 14,
+              }}
+            >
+              {selectedMatchday !== null
+                ? `Giornata ${selectedMatchday}`
+                : "Tutte le giornate"} ▾
+            </Text>
+          </TouchableOpacity>
+
           {/* Bottone selezione squadra */}
           <TouchableOpacity
             onPress={() => setTeamSelectorVisible(true)}
-            style={styles.teamButton}
+            style={[styles.filterButton, { marginLeft: 8 }]}
             activeOpacity={0.7}
           >
             <Text
@@ -277,6 +312,87 @@ const App: React.FC = () => {
         renderItem={renderMatch}
         contentContainerStyle={styles.listContent}
       />
+
+      {/* MODAL selettore giornata */}
+      <Modal
+        visible={matchdaySelectorVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMatchdaySelectorVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View
+            style={[
+              styles.modalContent,
+              { backgroundColor: isDark ? "#1f2833" : "#ffffff" },
+            ]}
+          >
+            <Text
+              style={{
+                fontSize: 16,
+                fontWeight: "700",
+                marginBottom: 12,
+                color: isDark ? "#ffffff" : "#000000",
+              }}
+            >
+              Seleziona giornata
+            </Text>
+
+            <ScrollView style={{ maxHeight: 300 }}>
+              <TouchableOpacity
+                style={styles.modalItem}
+                onPress={() => {
+                  setSelectedMatchday(null);
+                  setMatchdaySelectorVisible(false);
+                }}
+              >
+                <Text
+                  style={{
+                    color: isDark ? "#66fcf1" : "#006699",
+                    fontWeight: selectedMatchday === null ? "700" : "400",
+                  }}
+                >
+                  Tutte le giornate
+                </Text>
+              </TouchableOpacity>
+
+              {matchdays.map((md) => (
+                <TouchableOpacity
+                  key={`md-${md}`}
+                  style={styles.modalItem}
+                  onPress={() => {
+                    setSelectedMatchday(md);
+                    setMatchdaySelectorVisible(false);
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: isDark ? "#ffffff" : "#000000",
+                      fontWeight: selectedMatchday === md ? "700" : "400",
+                    }}
+                  >
+                    Giornata {md}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            <TouchableOpacity
+              onPress={() => setMatchdaySelectorVisible(false)}
+              style={styles.modalCloseButton}
+            >
+              <Text
+                style={{
+                  color: isDark ? "#66fcf1" : "#006699",
+                  fontWeight: "600",
+                }}
+              >
+                Chiudi
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* MODAL selettore squadra */}
       <Modal
@@ -365,31 +481,27 @@ const App: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  listContent: { padding: 16, paddingBottom: 32 },
+  listContent: { padding: 16, paddingBottom: 32, paddingTop: 0 },
   header: {
     paddingHorizontal: 16,
     paddingTop: 60,
     paddingBottom: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
   },
-  headerRight: {
+  headerFiltersRow: {
+    marginTop: 8,
     flexDirection: "row",
     alignItems: "center",
   },
   title: {
     fontSize: 20,
     fontWeight: "700",
-    flexShrink: 1,
-    paddingRight: 8,
   },
   themeButton: {
     marginLeft: 8,
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
-  teamButton: {
+  filterButton: {
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
