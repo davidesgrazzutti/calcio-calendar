@@ -5,6 +5,9 @@ mostra i prossimi incontri della **Serie A** in un'interfaccia semplice,
 moderna e veloce.\
 Funziona su **Android**, **Web** ed è compatibile con **EAS Build**.
 
+<img width="418" height="914" alt="image" src="https://github.com/user-attachments/assets/32617956-63cd-4e6f-b85c-ec54b4a58e76" />
+
+
 ## 🚀 Tecnologie utilizzate
 
 -   React Native
