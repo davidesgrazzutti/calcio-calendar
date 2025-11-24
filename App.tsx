@@ -7,6 +7,8 @@ import {
   View,
   TouchableOpacity,
   ActivityIndicator,
+  Modal,
+  ScrollView,
 } from "react-native";
 
 type Theme = "light" | "dark";
@@ -31,6 +33,9 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
+  const [teamSelectorVisible, setTeamSelectorVisible] = useState(false);
+
   const isDark = theme === "dark";
 
   const toggleTheme = () => {
@@ -49,14 +54,7 @@ const App: React.FC = () => {
 
       const data = (await res.json()) as Match[];
 
-      // ordina per giornata + data + ora
-      const sorted = [...data].sort((a, b) =>
-        `${a.matchday.toString().padStart(2, "0")} ${a.date} ${a.time}`.localeCompare(
-          `${b.matchday.toString().padStart(2, "0")} ${b.date} ${b.time}`
-        )
-      );
-
-      setFixtures(sorted);
+      setFixtures(data);
     } catch (err: any) {
       console.log("Errore nel fetch:", err);
       setError("Impossibile caricare le partite. Controlla la connessione.");
@@ -69,9 +67,35 @@ const App: React.FC = () => {
     loadFixtures();
   }, []);
 
+  // elenco delle squadre (home + away), senza duplicati, ordinato
+  const teams: string[] = React.useMemo(() => {
+    const set = new Set<string>();
+    fixtures.forEach((f) => {
+      set.add(f.homeTeam);
+      set.add(f.awayTeam);
+    });
+    return Array.from(set).sort();
+  }, [fixtures]);
+
+  // partite ordinate e filtrate per squadra (se selezionata)
+  const visibleFixtures: Match[] = React.useMemo(() => {
+    const sorted = [...fixtures].sort((a, b) =>
+      `${a.matchday.toString().padStart(2, "0")} ${a.date} ${a.time}`.localeCompare(
+        `${b.matchday.toString().padStart(2, "0")} ${b.date} ${b.time}`
+      )
+    );
+
+    if (!selectedTeam) return sorted;
+
+    return sorted.filter(
+      (f) => f.homeTeam === selectedTeam || f.awayTeam === selectedTeam
+    );
+  }, [fixtures, selectedTeam]);
+
   const renderMatch = ({ item, index }: { item: Match; index: number }) => {
-    const prev = fixtures[index - 1];
-    const showDivider = index === 0 || prev.matchday !== item.matchday;
+    const prev = visibleFixtures[index - 1];
+    const showDivider =
+      index === 0 || !prev || prev.matchday !== item.matchday;
 
     return (
       <View>
@@ -103,6 +127,7 @@ const App: React.FC = () => {
             ]}
           >
             Serie A 2025/26
+            {selectedTeam ? ` • ${selectedTeam}` : ""}
           </Text>
 
           <Text
@@ -216,23 +241,124 @@ const App: React.FC = () => {
           Calcio Calendar – Serie A 2025/26
         </Text>
 
-        <TouchableOpacity
-          onPress={toggleTheme}
-          style={styles.themeButton}
-          activeOpacity={0.7}
-        >
-          <Text style={{ fontSize: 22 }}>
-            {isDark ? "☀️" : "🌙"}
-          </Text>
-        </TouchableOpacity>
+        <View style={styles.headerRight}>
+          {/* Bottone selezione squadra */}
+          <TouchableOpacity
+            onPress={() => setTeamSelectorVisible(true)}
+            style={styles.teamButton}
+            activeOpacity={0.7}
+          >
+            <Text
+              style={{
+                color: isDark ? "#66fcf1" : "#006699",
+                fontSize: 14,
+              }}
+            >
+              {selectedTeam ? selectedTeam : "Tutte le squadre"} ▾
+            </Text>
+          </TouchableOpacity>
+
+          {/* Bottone tema */}
+          <TouchableOpacity
+            onPress={toggleTheme}
+            style={styles.themeButton}
+            activeOpacity={0.7}
+          >
+            <Text style={{ fontSize: 22 }}>
+              {isDark ? "☀️" : "🌙"}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <FlatList
-        data={fixtures}
+        data={visibleFixtures}
         keyExtractor={(item) => item.id}
         renderItem={renderMatch}
         contentContainerStyle={styles.listContent}
       />
+
+      {/* MODAL selettore squadra */}
+      <Modal
+        visible={teamSelectorVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setTeamSelectorVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View
+            style={[
+              styles.modalContent,
+              { backgroundColor: isDark ? "#1f2833" : "#ffffff" },
+            ]}
+          >
+            <Text
+              style={{
+                fontSize: 16,
+                fontWeight: "700",
+                marginBottom: 12,
+                color: isDark ? "#ffffff" : "#000000",
+              }}
+            >
+              Seleziona squadra
+            </Text>
+
+            <ScrollView style={{ maxHeight: 300 }}>
+              <TouchableOpacity
+                style={styles.modalItem}
+                onPress={() => {
+                  setSelectedTeam(null);
+                  setTeamSelectorVisible(false);
+                }}
+              >
+                <Text
+                  style={{
+                    color: isDark ? "#66fcf1" : "#006699",
+                    fontWeight: !selectedTeam ? "700" : "400",
+                  }}
+                >
+                  Tutte le squadre
+                </Text>
+              </TouchableOpacity>
+
+              {teams.map((team) => (
+                <TouchableOpacity
+                  key={team}
+                  style={styles.modalItem}
+                  onPress={() => {
+                    setSelectedTeam(team);
+                    setTeamSelectorVisible(false);
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: isDark ? "#ffffff" : "#000000",
+                      fontWeight:
+                        selectedTeam === team ? "700" : "400",
+                    }}
+                  >
+                    {team}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            <TouchableOpacity
+              onPress={() => setTeamSelectorVisible(false)}
+              style={styles.modalCloseButton}
+            >
+              <Text
+                style={{
+                  color: isDark ? "#66fcf1" : "#006699",
+                  fontWeight: "600",
+                }}
+              >
+                Chiudi
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -244,17 +370,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 60,
     paddingBottom: 8,
-    flexDirection: "column",
-    alignItems: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   title: {
     fontSize: 20,
     fontWeight: "700",
+    flexShrink: 1,
+    paddingRight: 8,
   },
   themeButton: {
-    marginTop: 6,
+    marginLeft: 8,
     paddingHorizontal: 6,
     paddingVertical: 2,
+  },
+  teamButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#66fcf1",
   },
   card: {
     padding: 12,
@@ -276,6 +416,23 @@ const styles = StyleSheet.create({
   },
   meta: {
     fontSize: 12,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+  },
+  modalContent: {
+    borderRadius: 12,
+    padding: 16,
+  },
+  modalItem: {
+    paddingVertical: 8,
+  },
+  modalCloseButton: {
+    marginTop: 12,
+    alignSelf: "flex-end",
   },
 });
 
