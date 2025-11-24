@@ -25,6 +25,10 @@ interface Match {
   homeGoals?: number | null;
   awayGoals?: number | null;
   status?: string | null;
+
+  // marcatori
+  homeScorers?: string | null;
+  awayScorers?: string | null;
 }
 
 const API_BASE_URL = "https://calciocalendarapi.onrender.com";
@@ -36,36 +40,33 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // squadra
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
   const [teamSelectorVisible, setTeamSelectorVisible] = useState(false);
 
-  const [selectedMatchday, setSelectedMatchday] = useState<number | null>(null);
-  const [matchdaySelectorVisible, setMatchdaySelectorVisible] =
-    useState(false);
-
-  /** Vista attiva:
-   * "ALL" → tutte
-   * "FINISHED" → risultati
-   * "SCHEDULED" → ancora da giocare
-   */
-  const [viewMode, setViewMode] = useState<"ALL" | "FINISHED" | "SCHEDULED">(
-    "SCHEDULED"
-  );
-
-  // Modale per scegliere la vista (Risultati / In programma / Tutto)
+  // vista (risultati / in programma)
+  const [viewMode, setViewMode] =
+    useState<"FINISHED" | "SCHEDULED">("SCHEDULED");
   const [viewModeSelectorVisible, setViewModeSelectorVisible] =
     useState(false);
 
+  // espansione card
+  const [expandedMatches, setExpandedMatches] =
+    useState<Record<string, boolean>>({});
+
+  const toggleExpand = (id: string) => {
+    setExpandedMatches((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
   const isDark = theme === "dark";
 
-  // colori di tema
-  const primaryColor = isDark ? "#66fcf1" : "#003366"; // blu scritta "Giornata" in light
+  const primaryColor = isDark ? "#66fcf1" : "#003366";
   const leagueColor = isDark ? "#66fcf1" : "#006699";
 
   const toggleTheme = () =>
     setTheme((prev) => (prev === "dark" ? "light" : "dark"));
 
-  //---------------- FETCH DATA ----------------//
+  //---------------- FETCH ----------------//
   const loadFixtures = async () => {
     try {
       setLoading(true);
@@ -84,8 +85,7 @@ const App: React.FC = () => {
     loadFixtures();
   }, []);
 
-  //---------------- LISTE ----------------//
-
+  //---------------- LISTA SQUADRE ----------------//
   const teams = React.useMemo(() => {
     const s = new Set<string>();
     fixtures.forEach((f) => {
@@ -95,67 +95,45 @@ const App: React.FC = () => {
     return Array.from(s).sort();
   }, [fixtures]);
 
-  const matchdays = React.useMemo(() => {
-    const s = new Set<number>();
-    fixtures.forEach((f) => s.add(f.matchday));
-    return Array.from(s).sort((a, b) => a - b);
-  }, [fixtures]);
-
-  //---------------- FILTRI PRINCIPALI ----------------//
-
+  //---------------- FILTRI ----------------//
   const visibleFixtures = React.useMemo(() => {
     let arr = [...fixtures];
 
-    // 1) FILTRO STATO (risultati / future)
     if (viewMode === "FINISHED") {
       arr = arr.filter((f) => f.status === "FINISHED");
-    } else if (viewMode === "SCHEDULED") {
+    } else {
       arr = arr.filter((f) => f.status === "SCHEDULED");
     }
 
-    // 2) FILTRO SQUADRA
     if (selectedTeam) {
       arr = arr.filter(
         (f) => f.homeTeam === selectedTeam || f.awayTeam === selectedTeam
       );
     }
 
-    // 3) FILTRO GIORNATA
-    if (selectedMatchday !== null) {
-      arr = arr.filter((f) => f.matchday === selectedMatchday);
-    }
-
-    // 4) ORDINE: prima per matchday, poi per data, poi ora
     arr.sort((a, b) => {
-      if (a.matchday !== b.matchday) {
-        return a.matchday - b.matchday;
-      }
-
-      if (a.date !== b.date) {
-        return a.date.localeCompare(b.date);
-      }
-
+      if (a.matchday !== b.matchday) return a.matchday - b.matchday;
+      if (a.date !== b.date) return a.date.localeCompare(b.date);
       return a.time.localeCompare(b.time);
     });
 
-    // 5) Se sto guardando solo i RISULTATI → inverti l’ordine delle giornate
-    if (viewMode === "FINISHED") {
-      arr.reverse();
-    }
+    if (viewMode === "FINISHED") arr.reverse();
 
     return arr;
-  }, [fixtures, selectedTeam, selectedMatchday, viewMode]);
+  }, [fixtures, selectedTeam, viewMode]);
 
-  //---------------- RENDER DI UNA PARTITA ----------------//
+  //---------------- RENDER MATCH ----------------//
 
   const renderMatch = ({ item, index }: { item: Match; index: number }) => {
     const prev = visibleFixtures[index - 1];
     const showDivider = !prev || prev.matchday !== item.matchday;
 
+    const expanded = expandedMatches[item.id] || false;
     const hasResult = item.homeGoals != null && item.awayGoals != null;
 
     return (
       <View>
+        {/* separatore giornata */}
         {showDivider && (
           <Text
             style={{
@@ -170,54 +148,94 @@ const App: React.FC = () => {
           </Text>
         )}
 
-        <View
-          style={[
-            styles.card,
-            { backgroundColor: isDark ? "#1f2833" : "#ffffff" },
-          ]}
-        >
-          <Text
+        <TouchableOpacity onPress={() => toggleExpand(item.id)}>
+          <View
             style={[
-              styles.league,
-              {
-                color: leagueColor,
-              },
+              styles.card,
+              { backgroundColor: isDark ? "#1f2833" : "#ffffff" },
             ]}
           >
-            Serie A 2025/26
-          </Text>
+            <Text style={[styles.league, { color: leagueColor }]}>
+              Serie A 2025/26
+            </Text>
 
-          <Text
-            style={[
-              styles.teams,
-              { color: isDark ? "#ffffff" : "#000000" },
-            ]}
-          >
-            {item.homeTeam}
-            {hasResult
-              ? ` ${item.homeGoals} - ${item.awayGoals} `
-              : " vs "}
-            {item.awayTeam}
-          </Text>
+            <Text
+              style={[
+                styles.teams,
+                { color: isDark ? "#ffffff" : "#000000" },
+              ]}
+            >
+              {item.homeTeam}
+              {hasResult
+                ? ` ${item.homeGoals} - ${item.awayGoals} `
+                : " vs "}
+              {item.awayTeam}
+            </Text>
 
-          <Text
-            style={[
-              styles.dateTime,
-              { color: isDark ? "#c5c6c7" : "#333333" },
-            ]}
-          >
-            {item.date} • {item.time}
-          </Text>
+            <Text
+              style={[
+                styles.dateTime,
+                { color: isDark ? "#c5c6c7" : "#333333" },
+              ]}
+            >
+              {item.date} • {item.time}
+            </Text>
 
-          <Text
-            style={[
-              styles.meta,
-              { color: isDark ? "#c5c6c7" : "#555555" },
-            ]}
-          >
-            {item.stadium} • {item.city}
-          </Text>
-        </View>
+            <Text
+              style={[
+                styles.meta,
+                { color: isDark ? "#c5c6c7" : "#555555" },
+              ]}
+            >
+              {item.stadium} • {item.city}
+            </Text>
+
+            {/* ESPANSIONE */}
+            {expanded && (
+              <View
+                style={{
+                  marginTop: 10,
+                  paddingTop: 10,
+                  borderTopWidth: 1,
+                  borderTopColor: isDark ? "#3a3f47" : "#cccccc",
+                }}
+              >
+                {hasResult ? (
+                  <>
+                    {item.homeScorers && (
+                      <Text
+                        style={{
+                          color: isDark ? "#c5c6c7" : "#333333",
+                          marginBottom: 4,
+                        }}
+                      >
+                        {item.homeTeam}: {item.homeScorers}
+                      </Text>
+                    )}
+                    {item.awayScorers && (
+                      <Text
+                        style={{
+                          color: isDark ? "#c5c6c7" : "#333333",
+                        }}
+                      >
+                        {item.awayTeam}: {item.awayScorers}
+                      </Text>
+                    )}
+                    {!item.homeScorers && !item.awayScorers && (
+                      <Text style={{ color: "#aaa" }}>
+                        Marcatori non disponibili
+                      </Text>
+                    )}
+                  </>
+                ) : (
+                  <Text style={{ color: "#aaa" }}>
+                    La partita non è ancora stata giocata
+                  </Text>
+                )}
+              </View>
+            )}
+          </View>
+        </TouchableOpacity>
       </View>
     );
   };
@@ -242,7 +260,7 @@ const App: React.FC = () => {
       </SafeAreaView>
     );
 
-  //---------------- MAIN RENDER ----------------//
+  //---------------- MAIN UI ----------------//
 
   return (
     <SafeAreaView
@@ -264,18 +282,17 @@ const App: React.FC = () => {
 
         {/* FILTRI */}
         <View style={styles.headerFiltersRow}>
+          {/* Vista */}
           <TouchableOpacity
             style={[styles.filterButton, { borderColor: primaryColor }]}
-            onPress={() => setMatchdaySelectorVisible(true)}
+            onPress={() => setViewModeSelectorVisible(true)}
           >
             <Text style={{ color: primaryColor }}>
-              {selectedMatchday !== null
-                ? `Giornata ${selectedMatchday}`
-                : "Tutte le giornate"}{" "}
-              ▾
+              {viewMode === "FINISHED" ? "Risultati" : "In programma"} ▾
             </Text>
           </TouchableOpacity>
 
+          {/* Squadre */}
           <TouchableOpacity
             style={[
               styles.filterButton,
@@ -288,30 +305,16 @@ const App: React.FC = () => {
             </Text>
           </TouchableOpacity>
 
-          {/* Sole/Luna + Icona menu vista (senza label) */}
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              marginLeft: 8,
-            }}
-          >
-            {/* MENU PRIMA */}
-            <TouchableOpacity
-              onPress={() => setViewModeSelectorVisible(true)}
-            >
-              <Text style={{ fontSize: 22, color: primaryColor }}>☰</Text>
-            </TouchableOpacity>
-
-            {/* SOLE/LUNA DOPO */}
-            <TouchableOpacity onPress={toggleTheme} style={{ marginLeft: 10 }}>
-              <Text style={{ fontSize: 22 }}>{isDark ? "☀️" : "🌙"}</Text>
-            </TouchableOpacity>
-          </View>
+          {/* Sole/Luna */}
+          <TouchableOpacity onPress={toggleTheme} style={{ marginLeft: 10 }}>
+            <Text style={{ fontSize: 22 }}>
+              {isDark ? "☀️" : "🌙"}
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
 
-      {/* LISTA PARTITE */}
+      {/* LISTA */}
       <FlatList
         data={visibleFixtures}
         keyExtractor={(i) => i.id}
@@ -319,61 +322,58 @@ const App: React.FC = () => {
         contentContainerStyle={styles.listContent}
       />
 
-      {/* -------- MODALI -------- */}
-
-      {/* GIORNATE */}
+      {/* MODALE VISTA */}
       <Modal
-        visible={matchdaySelectorVisible}
+        visible={viewModeSelectorVisible}
         transparent
         animationType="fade"
-        onRequestClose={() => setMatchdaySelectorVisible(false)}
+        onRequestClose={() => setViewModeSelectorVisible(false)}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Seleziona giornata</Text>
+            <Text style={styles.modalTitle}>Seleziona vista</Text>
 
-            <ScrollView style={{ maxHeight: 280 }}>
-              <TouchableOpacity
-                style={styles.modalItem}
-                onPress={() => {
-                  setSelectedMatchday(null);
-                  setMatchdaySelectorVisible(false);
+            <TouchableOpacity
+              style={styles.modalItem}
+              onPress={() => {
+                setViewMode("SCHEDULED");
+                setViewModeSelectorVisible(false);
+              }}
+            >
+              <Text
+                style={{
+                  color:
+                    viewMode === "SCHEDULED" ? primaryColor : "#ffffff",
+                  fontWeight:
+                    viewMode === "SCHEDULED" ? "700" : "400",
                 }}
               >
-                <Text
-                  style={{
-                    color: primaryColor,
-                    fontWeight: selectedMatchday === null ? "700" : "400",
-                  }}
-                >
-                  Tutte le giornate
-                </Text>
-              </TouchableOpacity>
+                In programma
+              </Text>
+            </TouchableOpacity>
 
-              {matchdays.map((md) => (
-                <TouchableOpacity
-                  key={md}
-                  style={styles.modalItem}
-                  onPress={() => {
-                    setSelectedMatchday(md);
-                    setMatchdaySelectorVisible(false);
-                  }}
-                >
-                  <Text
-                    style={{
-                      color: "#ffffff",
-                      fontWeight: selectedMatchday === md ? "700" : "400",
-                    }}
-                  >
-                    Giornata {md}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+            <TouchableOpacity
+              style={styles.modalItem}
+              onPress={() => {
+                setViewMode("FINISHED");
+                setViewModeSelectorVisible(false);
+              }}
+            >
+              <Text
+                style={{
+                  color:
+                    viewMode === "FINISHED" ? primaryColor : "#ffffff",
+                  fontWeight:
+                    viewMode === "FINISHED" ? "700" : "400",
+                }}
+              >
+                Risultati
+              </Text>
+            </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.modalCloseButton}
-              onPress={() => setMatchdaySelectorVisible(false)}
+              onPress={() => setViewModeSelectorVisible(false)}
             >
               <Text style={{ color: primaryColor }}>Chiudi</Text>
             </TouchableOpacity>
@@ -381,7 +381,7 @@ const App: React.FC = () => {
         </View>
       </Modal>
 
-      {/* SQUADRE */}
+      {/* MODALE SQUADRE */}
       <Modal
         visible={teamSelectorVisible}
         transparent
@@ -422,7 +422,8 @@ const App: React.FC = () => {
                   <Text
                     style={{
                       color: "#ffffff",
-                      fontWeight: selectedTeam === team ? "700" : "400",
+                      fontWeight:
+                        selectedTeam === team ? "700" : "400",
                     }}
                   >
                     {team}
@@ -434,78 +435,6 @@ const App: React.FC = () => {
             <TouchableOpacity
               style={styles.modalCloseButton}
               onPress={() => setTeamSelectorVisible(false)}
-            >
-              <Text style={{ color: primaryColor }}>Chiudi</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* VISTA (RISULTATI / PROGRAMMA / TUTTO) */}
-      <Modal
-        visible={viewModeSelectorVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setViewModeSelectorVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Seleziona vista</Text>
-
-            <TouchableOpacity
-              style={styles.modalItem}
-              onPress={() => {
-                setViewMode("FINISHED");
-                setViewModeSelectorVisible(false);
-              }}
-            >
-              <Text
-                style={{
-                  color: viewMode === "FINISHED" ? primaryColor : "#ffffff",
-                  fontWeight: viewMode === "FINISHED" ? "700" : "400",
-                }}
-              >
-                Risultati
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.modalItem}
-              onPress={() => {
-                setViewMode("SCHEDULED");
-                setViewModeSelectorVisible(false);
-              }}
-            >
-              <Text
-                style={{
-                  color: viewMode === "SCHEDULED" ? primaryColor : "#ffffff",
-                  fontWeight: viewMode === "SCHEDULED" ? "700" : "400",
-                }}
-              >
-                In programma
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.modalItem}
-              onPress={() => {
-                setViewMode("ALL");
-                setViewModeSelectorVisible(false);
-              }}
-            >
-              <Text
-                style={{
-                  color: viewMode === "ALL" ? primaryColor : "#ffffff",
-                  fontWeight: viewMode === "ALL" ? "700" : "400",
-                }}
-              >
-                Mostra tutto
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.modalCloseButton}
-              onPress={() => setViewModeSelectorVisible(false)}
             >
               <Text style={{ color: primaryColor }}>Chiudi</Text>
             </TouchableOpacity>

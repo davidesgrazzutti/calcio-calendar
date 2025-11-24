@@ -109,4 +109,17 @@ export const styles = StyleSheet.create({
     alignSelf: "flex-end",
     marginTop: 14,
   },
+
+  scorersBox: {
+  marginTop: 8,
+  paddingTop: 8,
+  borderTopWidth: 1,
+  borderTopColor: "#3a3f47", // va bene anche per light, se vuoi puoi differenziare
+  },
+
+  scorersText: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+
 });
