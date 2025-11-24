@@ -53,6 +53,8 @@ const App: React.FC = () => {
   );
 
   const isDark = theme === "dark";
+  const primaryColor = isDark ? "#66fcf1" : "#003366";
+  const textOnPrimary = isDark ? "#0b0c10" : "#ffffff";
 
   const toggleTheme = () =>
     setTheme((prev) => (prev === "dark" ? "light" : "dark"));
@@ -253,98 +255,106 @@ const App: React.FC = () => {
           Calcio Calendar – Serie A 2025/26
         </Text>
 
-        {/* FILTRI */}
-        <View style={styles.headerFiltersRow}>
-          <TouchableOpacity
-            style={styles.filterButton}
-            onPress={() => setMatchdaySelectorVisible(true)}
-          >
-            <Text style={{ color: "#66fcf1" }}>
-              {selectedMatchday !== null
-                ? `Giornata ${selectedMatchday}`
-                : "Tutte le giornate"} ▾
-            </Text>
-          </TouchableOpacity>
+    {/* FILTRI */}
+    <View style={styles.headerFiltersRow}>
+      <TouchableOpacity
+        style={[styles.filterButton, { borderColor: primaryColor }]}
+        onPress={() => setMatchdaySelectorVisible(true)}
+      >
+        <Text style={{ color: primaryColor }}>
+          {selectedMatchday !== null
+            ? `Giornata ${selectedMatchday}`
+            : "Tutte le giornate"} ▾
+        </Text>
+      </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.filterButton, { marginLeft: 6 }]}
-            onPress={() => setTeamSelectorVisible(true)}
-          >
-            <Text style={{ color: "#66fcf1" }}>
-              {selectedTeam || "Tutte le squadre"} ▾
-            </Text>
-          </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.filterButton, { borderColor: primaryColor, marginLeft: 6 }]}
+        onPress={() => setTeamSelectorVisible(true)}
+      >
+        <Text style={{ color: primaryColor }}>
+          {selectedTeam || "Tutte le squadre"} ▾
+        </Text>
+      </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={toggleTheme}
-            style={{ marginLeft: 8 }}
-          >
-            <Text style={{ fontSize: 22 }}>
-              {isDark ? "☀️" : "🌙"}
-            </Text>
-          </TouchableOpacity>
-        </View>
+      <TouchableOpacity
+        onPress={toggleTheme}
+        style={{ marginLeft: 8 }}
+      >
+        <Text style={{ fontSize: 22 }}>
+          {isDark ? "☀️" : "🌙"}
+        </Text>
+      </TouchableOpacity>
+    </View>
 
-        {/* VISTA RISULTATI / FUTURE / TUTTO */}
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            marginTop: 14,
-            gap: 10,
-          }}
+
+    {/* VISTA RISULTATI / FUTURE / TUTTO */}
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        marginTop: 14,
+        gap: 10,
+      }}
+    >
+      <TouchableOpacity
+        style={[
+          styles.viewButton,
+          { borderColor: primaryColor },
+          viewMode === "FINISHED" && { backgroundColor: primaryColor },
+        ]}
+        onPress={() => setViewMode("FINISHED")}
+      >
+        <Text
+          style={[
+            styles.viewButtonText,
+            { color: primaryColor },
+            viewMode === "FINISHED" && { color: textOnPrimary },
+          ]}
         >
-          <TouchableOpacity
-            style={[
-              styles.viewButton,
-              viewMode === "FINISHED" && styles.viewButtonActive,
-            ]}
-            onPress={() => setViewMode("FINISHED")}
-          >
-            <Text
-              style={[
-                styles.viewButtonText,
-                viewMode === "FINISHED" && styles.viewButtonTextActive,
-              ]}
-            >
-              Risultati
-            </Text>
-          </TouchableOpacity>
+          Risultati
+        </Text>
+      </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[
-              styles.viewButton,
-              viewMode === "SCHEDULED" && styles.viewButtonActive,
-            ]}
-            onPress={() => setViewMode("SCHEDULED")}
-          >
-            <Text
-              style={[
-                styles.viewButtonText,
-                viewMode === "SCHEDULED" && styles.viewButtonTextActive,
-              ]}
-            >
-              In programma
-            </Text>
-          </TouchableOpacity>
+      <TouchableOpacity
+        style={[
+          styles.viewButton,
+          { borderColor: primaryColor },
+          viewMode === "SCHEDULED" && { backgroundColor: primaryColor },
+        ]}
+        onPress={() => setViewMode("SCHEDULED")}
+      >
+        <Text
+          style={[
+            styles.viewButtonText,
+            { color: primaryColor },
+            viewMode === "SCHEDULED" && { color: textOnPrimary },
+          ]}
+        >
+          In programma
+        </Text>
+      </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[
-              styles.viewButton,
-              viewMode === "ALL" && styles.viewButtonActive,
-            ]}
-            onPress={() => setViewMode("ALL")}
-          >
-            <Text
-              style={[
-                styles.viewButtonText,
-                viewMode === "ALL" && styles.viewButtonTextActive,
-              ]}
-            >
-              Mostra tutto
-            </Text>
-          </TouchableOpacity>
-        </View>
+      <TouchableOpacity
+        style={[
+          styles.viewButton,
+          { borderColor: primaryColor },
+          viewMode === "ALL" && { backgroundColor: primaryColor },
+        ]}
+        onPress={() => setViewMode("ALL")}
+      >
+        <Text
+          style={[
+            styles.viewButtonText,
+            { color: primaryColor },
+            viewMode === "ALL" && { color: textOnPrimary },
+          ]}
+        >
+          Mostra tutto
+        </Text>
+      </TouchableOpacity>
+    </View>
+
 
       </View>
 
@@ -513,7 +523,6 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: "#66fcf1",
   },
 
   /* ---------- BOTTONI VISTA ---------- */
@@ -522,27 +531,16 @@ const styles = StyleSheet.create({
       paddingVertical: 8,
       borderRadius: 999,
       borderWidth: 1,
-      borderColor: "#66fcf1",
       marginRight: 8,
       minWidth: 60,              // 👈 larghezza minima uguale per tutti
       alignItems: "center",       // 👈 testo centrato
   },
-  viewButtonActive: {
-      backgroundColor: "#66fcf1",
-      borderColor: "#66fcf1",
-      color: "#0b0c10",  // 👈 testo scuro quando sfondo è azzurro
-  },
   viewButtonActiveText: {
      color: "#000", // testo nero quando attivo
-  },
-  viewButtonTextActive: {
-     color: "#0b0c10",
-     fontWeight: "700",
   },
   viewButtonText: {
       fontSize: 14,
       fontWeight: "600",
-      color: "#66fcf1",
   },
 
   card: {
